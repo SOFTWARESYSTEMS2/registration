@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Course Catalog</title>
+    </head>
+    <body>
+        <h1>Course Catalog</h1>
+
+        <p th:if="${selectedTerm != ''}">
+            Showing courses for term: <span th:text="${selectedTerm}"></span>
+        </p>
+
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Course Code</th>
+                    <th>Title</th>
+                    <th>Credits</th>
+                    <th>Term</th>
+                    <th>Capacity</th>
+                    <th>Enrolled</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="offering : ${offerings}">
+                    <td th:text="${offering.course.code}"></td>
+                    <td th:text="${offering.course.title}"></td>
+                    <td th:text="${offering.course.credits}"></td>
+                    <td th:text="${offering.course.term}"></td>
+                    <td th:text="${offering.course.capacity}"></td>
+                    <td th:text="${offering.course.enrolled}"></td>
+                </tr>
+            </tbody>
+        </table>
+    </body>
+</html>
