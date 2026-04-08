@@ -81,7 +81,7 @@ public class DataLoader {
                     "user",
                     "userpass",
                     "STUDENT",
-                    "Senior",
+                    "Sophomore",
                     csMajor,
                     mathMinor,
                     softwareEng
