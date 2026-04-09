@@ -1,7 +1,7 @@
 package edu.iu.registration.controllers;
 
 import java.security.Principal;
-
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -32,11 +32,11 @@ public class HomeController {
         }
 
         String username = principal.getName();
-        AppUser user = appUserRepository.findByUsername(username).get();
-
-        if (user == null) {
+        Optional<AppUser> maybeUser = appUserRepository.findByUsername(username);
+        if (maybeUser.isEmpty()) {
             return "redirect:/login";
         }
+        AppUser user = maybeUser.get();
 
         int[] progress = studentService.checkProgress(user);
 
