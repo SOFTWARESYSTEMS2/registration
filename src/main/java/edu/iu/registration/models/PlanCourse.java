@@ -3,27 +3,22 @@ package edu.iu.registration.models;
 import java.util.ArrayList;
 import java.util.List;
 
-public class PlanCourse {
+import edu.iu.registration.data.entities.CourseOffering;
 
-    private String semester;
-    private Course course;
+public class PlanCourse {
+    private CourseOffering offering;
     private String status;
     private List<String> missingPrerequisites;
 
-    public PlanCourse(String semester, Course course, String status,
+    public PlanCourse(CourseOffering offering, String status,
             List<String> missingPrerequisites) {
-        this.semester = semester;
-        this.course = course;
+        this.offering = offering;
         this.status = status;
         this.missingPrerequisites = new ArrayList<>(missingPrerequisites);
     }
 
-    public String getSemester() {
-        return semester;
-    }
-
-    public Course getCourse() {
-        return course;
+    public CourseOffering getOffering() {
+        return offering;
     }
 
     public String getStatus() {

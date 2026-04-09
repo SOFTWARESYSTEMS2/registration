@@ -1,12 +1,16 @@
 package edu.iu.registration.services;
 
-import edu.iu.registration.models.Course;
 import edu.iu.registration.models.PlanCourse;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.springframework.stereotype.Service;
+
+import edu.iu.registration.data.entities.Course;
+import edu.iu.registration.data.entities.CourseOffering;
 
 @Service
 public class SemesterPlanService {
@@ -36,7 +40,7 @@ public class SemesterPlanService {
     }
 
     public void addCourseToSemester(String semester, String courseCode) {
-        Course selectedCourse = courseCatalogService.findByCode(courseCode);
+        CourseOffering selectedCourse = courseCatalogService.findByCode(courseCode);
 
         if (selectedCourse == null) {
             return;
@@ -51,8 +55,7 @@ public class SemesterPlanService {
             status = "WARNING";
         }
 
-        PlanCourse planEntry = new PlanCourse(semester, selectedCourse, status,
-                missingPrerequisites);
+        PlanCourse planEntry = new PlanCourse(selectedCourse, status, missingPrerequisites);
         planEntries.add(planEntry);
     }
 
