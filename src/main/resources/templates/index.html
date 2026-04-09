@@ -18,12 +18,19 @@
             Logged in as:
             <strong sec:authentication="name"></strong>
         </p>
-
-        <form th:action="@{/logout}" method="post">
-            <button type="submit">Logout</button>
-        </form>
     </div>
 
+    <nav class="d-flex justify-content-center">
+        <h3>Registration</h3>
+        <a th:href="@{/dashboard}">Dashboard</a>
+        <a th:href="@{/plan}">My Plan</a>
+        <a th:href="@{/courses}">Course Catalog</a>
+        <div style="margin-top: auto;">
+            <form th:action="@{/logout}" method="post">
+                <button type="submit">Logout</button>
+            </form>
+        </div>
+    </nav>
 </div>
 </body>
 </html>

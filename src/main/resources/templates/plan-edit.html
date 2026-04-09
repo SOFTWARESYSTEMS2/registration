@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Edit Semester Plan</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1 th:text="'Edit courses for ' + ${term}"></h1>
+
+    <form th:action="@{/plan/edit/save}" method="post">
+        <input type="hidden" name="term" th:value="${term}" />
+
+        <div th:if="${#lists.isEmpty(availableOfferings)}">
+            <p>No courses offered for this term.</p>
+        </div>
+
+        <div th:each="offering : ${availableOfferings}">
+            <label>
+                <input type="checkbox"
+                       name="selectedCourses"
+                       th:value="${offering.course.code}"
+                       th:checked="${selectedCourseCodes.contains(offering.course.code)}" />
+
+                <span th:text="${offering.course.code}"></span>
+                -
+                <span th:text="${offering.course.title}"></span>
+            </label>
+
+            <span>
+                (<span th:text="${offering.capacity}"></span> seats,
+                 <span th:text="${offering.enrolledCount}"></span> enrolled)
+            </span>
+
+            <br><br>
+        </div>
+
+        <button type="submit">Save semester courses</button>
+        <a th:href="@{/plan}">
+            <button type="button">Cancel</button>
+        </a>
+    </form>
+</body>
+</html>

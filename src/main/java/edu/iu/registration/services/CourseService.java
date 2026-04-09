@@ -88,14 +88,9 @@ public class CourseService {
             return Collections.emptyList();
         }
 
-        Optional<Term> term = termRepository.findByActiveTrue()
-                .filter(t -> t.getLabel().equalsIgnoreCase(termLabel));
-
-        if (term.isPresent()) {
-            return courseOfferingRepository.findByTerm(term.get());
-        }
-
-        return Collections.emptyList();
+        return termRepository.findByLabel(termLabel)
+                .map(courseOfferingRepository::findByTerm)
+                .orElseGet(Collections::emptyList);
     }
 
     // Returns offerings that are not full
