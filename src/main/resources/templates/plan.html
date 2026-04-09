@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>My Academic Plan</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>My Academic Plan</h1>
+
+    <form th:action="@{/plan/save}" method="post">
+        <div th:each="semesterEntry : ${groupedPlan}">
+            <h2 th:text="${semesterEntry.key}"></h2>
+
+            <div th:if="${#lists.isEmpty(semesterEntry.value)}">
+                <p>No courses planned.</p>
+            </div>
+
+            <div th:each="planCourse : ${semesterEntry.value}">
+                <label>
+                    <input type="checkbox"
+                           name="completedCourses"
+                           th:value="${planCourse.course.code}"
+                           th:checked="${completedCourseCodes.contains(planCourse.course.code)}" />
+
+                    <span th:text="${planCourse.course.code}"></span>
+                    -
+                    <span th:text="${planCourse.course.title}"></span>
+                </label>
+
+                <span>
+                    Status:
+                    <span th:text="${planCourse.status}"></span>
+                </span>
+
+                <span th:if="${planCourse.status == 'WARNING'}">
+                    Missing prerequisites:
+                    <span th:text="${planCourse.missingPrerequisitesText}"></span>
+                </span>
+
+                <br><br>
+            </div>
+        </div>
+
+        <button type="submit">Save</button>
+    </form>
+</body>
+</html>
