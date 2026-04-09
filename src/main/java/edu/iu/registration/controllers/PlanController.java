@@ -1,5 +1,6 @@
 package edu.iu.registration.controllers;
 
+import java.security.Principal;
 import java.util.List;
 
 import org.springframework.stereotype.Controller;
@@ -20,7 +21,11 @@ public class PlanController {
     }
 
     @GetMapping("/plan")
-    public String showPlan(Model model) {
+    public String showPlan(Model model, Principal principal) {
+        if (principal != null) {
+            planService.loadCompletedCoursesForUser(principal.getName());
+        }
+
         model.addAttribute("groupedPlan", planService.getPlanGroupedBySemester());
         model.addAttribute("completedCourseCodes", planService.getCompletedCourseCodes());
         return "plan";
@@ -28,8 +33,29 @@ public class PlanController {
 
     @PostMapping("/plan/save")
     public String savePlanCompletions(
-            @RequestParam(name = "completedCourses", required = false) List<String> completedCourses) {
-        planService.saveCompletedCourses(completedCourses);
+            @RequestParam(name = "completedCourses", required = false) List<String> completedCourses,
+            Principal principal) {
+
+        if (principal != null) {
+            planService.saveCompletedCourses(principal.getName(), completedCourses);
+        }
+
+        return "redirect:/plan";
+    }
+
+    @GetMapping("/plan/edit")
+    public String editSemester(@RequestParam String term, Model model) {
+        model.addAttribute("term", term);
+        model.addAttribute("selectedCourseCodes", planService.getSelectedCourseCodesForTerm(term));
+        model.addAttribute("availableOfferings", planService.getAvailableOfferingsForTerm(term));
+        return "plan-edit";
+    }
+
+    @PostMapping("/plan/edit/save")
+    public String saveSemesterEdits(
+            @RequestParam String term,
+            @RequestParam(name = "selectedCourses", required = false) List<String> selectedCourses) {
+        planService.saveCoursesForTerm(term, selectedCourses);
         return "redirect:/plan";
     }
 }

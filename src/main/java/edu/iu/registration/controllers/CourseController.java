@@ -5,9 +5,9 @@ import java.util.Set;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.util.StringUtils;
 
 import edu.iu.registration.data.entities.CourseOffering;
 import edu.iu.registration.services.CourseService;
@@ -22,14 +22,14 @@ public class CourseController {
     }
 
     @GetMapping("/courses")
-    public String catalog(@RequestParam(name = "term", required = false) String term, Model model) {
+    public String catalog(@RequestParam(name = "term", required = false) String termLabel, Model model) {
         // Demo data for sprint 1
         Set<String> completedCourses = Set.of("CSCI-A101", "MATH-M118");
 
         List<CourseOffering> offerings;
 
-        if (StringUtils.hasText(term)) {
-            offerings = courseService.getOfferingsForTermLabel(term);
+        if (StringUtils.hasText(termLabel)) {
+            offerings = courseService.getOfferingsForTermLabel(termLabel);
             offerings = courseService.filterOpenOfferings(offerings);
             offerings = courseService.filterEligibleOfferings(offerings, completedCourses);
         } else {
@@ -37,7 +37,7 @@ public class CourseController {
         }
 
         model.addAttribute("offerings", offerings);
-        model.addAttribute("selectedTerm", term == null ? "" : term);
+        model.addAttribute("selectedTerm", termLabel == null ? "" : termLabel);
         model.addAttribute("completedCourses", completedCourses);
 
         return "catalog";

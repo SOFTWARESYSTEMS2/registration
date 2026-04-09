@@ -1,5 +1,7 @@
 package edu.iu.registration.config;
 
+import java.util.List;
+
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -47,15 +49,19 @@ public class DataLoader {
             Department math = departmentRepository.save(new Department("Mathematics"));
 
             Major csMajor = majorRepository.save(new Major("B.S. Computer Science", cs));
-            Major mathMajor = majorRepository.save(new Major("B.S. Mathematics", math));
+            majorRepository.save(new Major("B.S. Mathematics", math));
 
             Minor mathMinor = minorRepository.save(new Minor("Mathematics Minor", math));
 
             Specialization softwareEng =
                     specializationRepository.save(new Specialization("Software Engineering", csMajor));
 
+            Term fall2025 = termRepository.save(new Term("Fall 2025", false));
+            Term spring2026 = termRepository.save(new Term("Spring 2026", false));
             Term fall2026 = termRepository.save(new Term("Fall 2026", true));
-            termRepository.save(new Term("Spring 2027", false));
+            Term spring2027 = termRepository.save(new Term("Spring 2027", false));
+
+            List<Term> terms = List.of(fall2025, spring2026, fall2026, spring2027);
 
             Course cs101 = courseRepository.save(new Course("CSCI-A101", "Intro to Programming", 3, cs, false));
             Course cs201 = courseRepository.save(new Course("CSCI-A201", "Data Structures", 3, cs, false));
@@ -64,18 +70,31 @@ public class DataLoader {
             Course math101 = courseRepository.save(new Course("MATH-M118", "Finite Mathematics", 3, math, false));
             Course math221 = courseRepository.save(new Course("MATH-M212", "Calculus II", 4, math, false));
 
+            List<Course> courses = List.of(cs101, cs201, cs301, cs310, math101, math221);
+
             prerequisiteRepository.save(new Prerequisite(cs201, cs101));
             prerequisiteRepository.save(new Prerequisite(cs301, cs201));
             prerequisiteRepository.save(new Prerequisite(cs310, cs201));
             prerequisiteRepository.save(new Prerequisite(math221, math101));
 
-            courseOfferingRepository.save(new CourseOffering(cs101, fall2026, 30, 20));
-            courseOfferingRepository.save(new CourseOffering(cs201, fall2026, 25, 25));
-            courseOfferingRepository.save(new CourseOffering(cs301, fall2026, 20, 10));
-            courseOfferingRepository.save(new CourseOffering(cs310, fall2026, 20, 8));
-            courseOfferingRepository.save(new CourseOffering(math101, fall2026, 40, 35));
-            courseOfferingRepository.save(new CourseOffering(math221, fall2026, 35, 35));
+            for (Term term : terms) {
+                for (Course course : courses) {
+                    int capacity = 30;
+                    int enrolledCount = 0;
 
+                    if (course.getCode().equals("CSCI-A201")) {
+                        capacity = 25;
+                    } else if (course.getCode().equals("CSCI-A301") || course.getCode().equals("CSCI-A310")) {
+                        capacity = 20;
+                    } else if (course.getCode().equals("MATH-M118")) {
+                        capacity = 40;
+                    } else if (course.getCode().equals("MATH-M212")) {
+                        capacity = 35;
+                    }
+
+                    courseOfferingRepository.save(new CourseOffering(course, term, capacity, enrolledCount));
+                }
+            }
 
             appUserRepository.save(new AppUser(
                     "user",

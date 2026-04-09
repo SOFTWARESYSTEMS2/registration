@@ -10,7 +10,7 @@
 <body>
     <nav class="d-flex justify-content-center">
         <h3>Registration</h3>
-        <!-- Add other pages here -->
+        <a th:href="@{/dashboard}">Dashboard</a>
         <a th:href="@{/plan}">My Plan</a>
         <a th:href="@{/courses}">Course Catalog</a>
         <div style="margin-top: auto;">
@@ -30,7 +30,7 @@
                 <h3>Major Progress</h3>
                 <p th:text="'Credits: ' + ${majHave} + '/' + ${majNeed}">Credits: 0/50</p>
             </div>
-            <div class="mb-3">
+            <div class="mb-3" th:if="${user != null and user.minor != null}">
                 <h3>Minor Progress</h3>
                 <p th:text="'Credits: ' + ${minHave} + '/' + ${minNeed}">Credits: 0/25</p>
             </div>

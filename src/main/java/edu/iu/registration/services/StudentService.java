@@ -1,14 +1,16 @@
 package edu.iu.registration.services;
 
+import java.util.Collections;
+import java.util.Set;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import edu.iu.registration.data.entities.*;
-import edu.iu.registration.data.repositories.*;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
-import java.util.Collections;
+import edu.iu.registration.data.entities.AppUser;
+import edu.iu.registration.data.entities.Course;
+import edu.iu.registration.data.entities.Major;
+import edu.iu.registration.data.entities.Minor;
+import edu.iu.registration.data.repositories.AppUserRepository;
 
 @Service
 public class StudentService {
@@ -30,9 +32,11 @@ public class StudentService {
             if (c.getDepartment().equals(major.getDepartment())) {
                 progress[2] += c.getCredits();
             } 
-            if (c.getDepartment().equals(minor.getDepartment())) {
-                progress[4] += c.getCredits();
-            } 
+            if (minor != null) {
+                if (c.getDepartment().equals(minor.getDepartment())) {
+                    progress[4] += c.getCredits();
+                } 
+            }
             // if (c.getDepartment().equals(spec.getDepartment())) {
             //     specCredits += c.getCredits();
             // } 
