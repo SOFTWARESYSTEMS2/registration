@@ -8,4 +8,5 @@ import edu.iu.registration.data.entities.Term;
 
 public interface TermRepository extends JpaRepository<Term, Long> {
     Optional<Term> findByActiveTrue();
+    Optional<Term> findByLabel(String label);
 }

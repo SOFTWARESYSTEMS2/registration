@@ -6,6 +6,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 
 import org.springframework.stereotype.Service;
 
@@ -15,14 +19,11 @@ import edu.iu.registration.data.entities.CourseOffering;
 @Service
 public class SemesterPlanService {
 
-    private final PreRequisiteService preRequisiteService;
-    private final CourseCatalogService courseCatalogService;
+    private final CourseService courseService;
     private final List<PlanCourse> planEntries;
 
-    public SemesterPlanService(PreRequisiteService preRequisiteService,
-            CourseCatalogService courseCatalogService) {
-        this.preRequisiteService = preRequisiteService;
-        this.courseCatalogService = courseCatalogService;
+    public SemesterPlanService(CourseService courseService) {
+        this.courseService = courseService;
         this.planEntries = new ArrayList<>();
     }
 
@@ -36,20 +37,24 @@ public class SemesterPlanService {
     }
 
     public List<Course> getAvailableCourses() {
-        return courseCatalogService.getAllCourses();
+        return courseService.getAllCourses();
     }
 
     public void addCourseToSemester(String semester, String courseCode) {
-        CourseOffering selectedCourse = courseCatalogService.findByCode(courseCode);
+        Optional<CourseOffering> selectedCourseOp = courseService.getCourseOffering(courseCode, semester);
 
-        if (selectedCourse == null) {
+        if (selectedCourseOp.isEmpty()) {
             return;
         }
+        CourseOffering selectedCourse = selectedCourseOp.get();
 
-        List<Course> previouslyPlannedCourses = getCoursesBeforeSemester(semester);
-        List<String> missingPrerequisites = preRequisiteService.findMissingPrerequisites(
-                selectedCourse, previouslyPlannedCourses);
 
+        Set<String> previouslyPlannedCourses = getCoursesBeforeSemester(semester).stream()
+                .map(Course::getCode)
+                .collect(Collectors.toSet());
+        List<String> missingPrerequisites = courseService.getMissingPrerequisites(
+                selectedCourse.getCourse(), previouslyPlannedCourses);
+//List<String> getMissingPrerequisites(Course course, Set<String> completedCourseCodes)
         String status = "OK";
         if (!missingPrerequisites.isEmpty()) {
             status = "WARNING";
@@ -67,8 +72,8 @@ public class SemesterPlanService {
         }
 
         for (PlanCourse entry : planEntries) {
-            if (groupedPlan.containsKey(entry.getSemester())) {
-                groupedPlan.get(entry.getSemester()).add(entry);
+            if (groupedPlan.containsKey(entry.getTerm())) {
+                groupedPlan.get(entry.getTerm()).add(entry);
             }
         }
 
@@ -81,7 +86,7 @@ public class SemesterPlanService {
         int targetIndex = semesters.indexOf(targetSemester);
 
         for (PlanCourse entry : planEntries) {
-            int entryIndex = semesters.indexOf(entry.getSemester());
+            int entryIndex = semesters.indexOf(entry.getTerm());
 
             if (entryIndex != -1 && targetIndex != -1 && entryIndex < targetIndex) {
                 completedCourses.add(entry.getCourse());

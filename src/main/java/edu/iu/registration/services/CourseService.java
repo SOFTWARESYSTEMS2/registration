@@ -53,6 +53,20 @@ public class CourseService {
         return courseRepository.findByCode(normalize(courseCode));
     }
 
+        // return course offering with given code if exists
+    public Optional<CourseOffering> getCourseOffering(String courseCode, String termLabel) {
+        if (courseCode.isBlank()) {
+            return Optional.empty();
+        }
+        Optional<Course> courseOpt = courseRepository.findByCode(normalize(courseCode));
+        Optional<Term> termOpt = termRepository.findByLabel(termLabel);
+        if (courseOpt.isEmpty() || termOpt.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return courseOfferingRepository.findByCourseAndTerm(courseOpt.get(), termOpt.get());
+    }
+
     // return offerings for a specific term
     public List<CourseOffering> getOfferingsForTerm(Term term) {
         if (term == null) {

@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import edu.iu.registration.data.entities.CourseOffering;
+import edu.iu.registration.data.entities.Term;
+import edu.iu.registration.data.entities.Course;
+
 
 public class PlanCourse {
     private CourseOffering offering;
@@ -27,6 +30,14 @@ public class PlanCourse {
 
     public List<String> getMissingPrerequisites() {
         return missingPrerequisites;
+    }
+
+    public Term getTerm() {
+        return offering.getTerm();
+    }
+
+    public Course getCourse() {
+        return offering.getCourse();
     }
 
     public String getMissingPrerequisitesText() {
