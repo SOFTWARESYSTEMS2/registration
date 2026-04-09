@@ -1,12 +1,15 @@
 package edu.iu.registration.data.entities;
 
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 
 @Entity
@@ -30,6 +33,9 @@ public class Course {
 
     @Column(nullable = false)
     private boolean repeatable = false;
+
+    @ManyToMany(mappedBy = "courses")
+    private Set<AppUser> students = new HashSet<>();
 
     public Course() {
     }
@@ -62,6 +68,10 @@ public class Course {
         return department;
     }
 
+    public Set<AppUser> getStudents() {
+        return students;
+    }
+
     public boolean isRepeatable() {
         return repeatable;
     }
@@ -84,6 +94,18 @@ public class Course {
 
     public void setRepeatable(boolean repeatable) {
         this.repeatable = repeatable;
+    }
+
+    public void setStudents(Set<AppUser> students) {
+        this.students = students;
+    }
+
+    public void addStudent(AppUser student) {
+        this.students.add(student);
+    }
+
+    public void removeStudent(AppUser student) {
+        this.students.remove(student);
     }
 
     @Override
