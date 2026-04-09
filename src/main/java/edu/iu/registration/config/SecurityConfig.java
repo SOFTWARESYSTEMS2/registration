@@ -38,10 +38,13 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/css/**").permitAll()
+                        .requestMatchers("/", "/**/*.css").permitAll()
                         .anyRequest().authenticated()
                 )
-                .formLogin(form -> form.permitAll())
+                .formLogin(form -> form
+                    .defaultSuccessUrl("/", true)
+                    .permitAll()
+                )
                 .logout(logout -> logout.permitAll());
 
         return http.build();

@@ -24,7 +24,7 @@ public class CourseController {
     @GetMapping("/courses")
     public String catalog(@RequestParam(name = "term", required = false) String term, Model model) {
         // Demo data for sprint 1
-        Set<String> completedCourses = Set.of("CSCI-C200", "MATH-M101");
+        Set<String> completedCourses = Set.of("CSCI-A101", "MATH-M118");
 
         List<CourseOffering> offerings;
 
