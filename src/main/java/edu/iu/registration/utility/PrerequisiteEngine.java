@@ -1,14 +1,17 @@
 package edu.iu.registration.utility;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
 import edu.iu.registration.data.entities.CourseOffering;
-import edu.iu.registration.data.entities.PlanEntry;
+import edu.iu.registration.data.entities.StudentPlan;
 import edu.iu.registration.services.CourseService;
 
 @Component
@@ -20,99 +23,173 @@ public class PrerequisiteEngine {
         this.courseService = courseService;
     }
 
-    public List<String> getSemesters() {
-        List<String> semesters = new ArrayList<>();
-        semesters.add("Fall 2025");
-        semesters.add("Spring 2026");
-        semesters.add("Fall 2026");
-        semesters.add("Spring 2027");
-        return semesters;
-    }
+    public Set<String> getSatisfiedCourseCodesBeforeTerm(
+            String targetTermLabel,
+            List<StudentPlan> allPlans,
+            Set<String> completedCourseCodes,
+            List<String> orderedTerms) {
 
-    public Set<String> getSatisfiedCourseCodesBeforeSemester(
-            String targetSemester,
-            List<PlanEntry> allEntries,
-            Set<String> completedCourseCodes) {
-
-        Set<String> satisfiedCodes = new LinkedHashSet<>();
+        Set<String> satisfied = new LinkedHashSet<>();
 
         if (completedCourseCodes != null) {
-            satisfiedCodes.addAll(completedCourseCodes);
+            satisfied.addAll(completedCourseCodes);
         }
 
-        int targetIndex = getSemesters().indexOf(targetSemester);
-        if (targetIndex == -1 || allEntries == null) {
-            return satisfiedCodes;
+        if (targetTermLabel == null || orderedTerms == null || allPlans == null) {
+            return satisfied;
         }
 
-        for (PlanEntry entry : allEntries) {
-            if (entry == null
-                    || entry.getCourseOffering() == null
-                    || entry.getCourseOffering().getTerm() == null
-                    || entry.getCourseOffering().getCourse() == null) {
+        int targetIndex = orderedTerms.indexOf(targetTermLabel);
+        if (targetIndex == -1) {
+            return satisfied;
+        }
+
+        for (StudentPlan plan : allPlans) {
+            if (plan == null || plan.getCourseOffering() == null || plan.getTerm() == null || plan.getCourse() == null) {
                 continue;
             }
 
-            String entrySemester = entry.getCourseOffering().getTerm().getLabel();
-            int entryIndex = getSemesters().indexOf(entrySemester);
+            String planTerm = plan.getTerm().getLabel();
+            int planIndex = orderedTerms.indexOf(planTerm);
 
-            if (entryIndex != -1 && entryIndex < targetIndex) {
-                satisfiedCodes.add(entry.getCourseOffering().getCourse().getCode());
+            if (planIndex != -1 && planIndex < targetIndex) {
+                satisfied.add(plan.getCourse().getCode());
             }
         }
 
-        return satisfiedCodes;
+        return satisfied;
     }
 
-    public List<String> findMissingPrerequisitesForEntry(
+    public List<String> getMissingPrerequisitesForPlannedOffering(
             CourseOffering offering,
-            List<PlanEntry> allEntries,
-            Set<String> completedCourseCodes) {
+            List<StudentPlan> allPlans,
+            Set<String> completedCourseCodes,
+            List<String> orderedTerms) {
 
         if (offering == null || offering.getCourse() == null || offering.getTerm() == null) {
-            return List.of();
+            return Collections.emptyList();
         }
 
-        Set<String> satisfiedCodes = getSatisfiedCourseCodesBeforeSemester(
+        Set<String> satisfiedBeforeTerm = getSatisfiedCourseCodesBeforeTerm(
                 offering.getTerm().getLabel(),
-                allEntries,
-                completedCourseCodes);
+                allPlans,
+                completedCourseCodes,
+                orderedTerms
+        );
 
-        return courseService.getMissingPrerequisites(offering.getCourse(), satisfiedCodes);
+        return courseService.getMissingPrerequisites(offering.getCourse(), satisfiedBeforeTerm);
     }
 
-    public String determineStatus(
+    public boolean isPlannedOfferingEligible(
             CourseOffering offering,
-            List<PlanEntry> allEntries,
-            Set<String> completedCourseCodes) {
+            List<StudentPlan> allPlans,
+            Set<String> completedCourseCodes,
+            List<String> orderedTerms) {
 
-        List<String> missingPrerequisites = findMissingPrerequisitesForEntry(
+        return getMissingPrerequisitesForPlannedOffering(
                 offering,
-                allEntries,
-                completedCourseCodes);
-
-        return missingPrerequisites.isEmpty() ? "OK" : "WARNING";
+                allPlans,
+                completedCourseCodes,
+                orderedTerms
+        ).isEmpty();
     }
 
-    public void recalculateStatuses(
-            List<PlanEntry> allEntries,
-            Set<String> completedCourseCodes) {
+    public String getStatusForPlannedOffering(
+            CourseOffering offering,
+            List<StudentPlan> allPlans,
+            Set<String> completedCourseCodes,
+            List<String> orderedTerms) {
 
-        if (allEntries == null) {
-            return;
+        return isPlannedOfferingEligible(
+                offering,
+                allPlans,
+                completedCourseCodes,
+                orderedTerms
+        ) ? "OK" : "WARNING";
+    }
+
+    public Map<Long, List<String>> getMissingPrerequisitesByPlanId(
+            List<StudentPlan> allPlans,
+            Set<String> completedCourseCodes,
+            List<String> orderedTerms) {
+
+        Map<Long, List<String>> missingByPlanId = new LinkedHashMap<>();
+
+        if (allPlans == null || allPlans.isEmpty()) {
+            return missingByPlanId;
         }
 
-        for (PlanEntry entry : allEntries) {
-            if (entry == null || entry.getCourseOffering() == null) {
+        for (StudentPlan plan : allPlans) {
+            if (plan == null || plan.getId() == null || plan.getCourseOffering() == null) {
                 continue;
             }
 
-            String status = determineStatus(
-                    entry.getCourseOffering(),
-                    allEntries,
-                    completedCourseCodes);
-
-            entry.setStatus(status);
+            missingByPlanId.put(
+                    plan.getId(),
+                    getMissingPrerequisitesForPlannedOffering(
+                            plan.getCourseOffering(),
+                            allPlans,
+                            completedCourseCodes,
+                            orderedTerms
+                    )
+            );
         }
+
+        return missingByPlanId;
+    }
+
+    public Map<Long, String> getStatusesByPlanId(
+            List<StudentPlan> allPlans,
+            Set<String> completedCourseCodes,
+            List<String> orderedTerms) {
+
+        Map<Long, String> statusesByPlanId = new LinkedHashMap<>();
+
+        if (allPlans == null || allPlans.isEmpty()) {
+            return statusesByPlanId;
+        }
+
+        for (StudentPlan plan : allPlans) {
+            if (plan == null || plan.getId() == null || plan.getCourseOffering() == null) {
+                continue;
+            }
+
+            statusesByPlanId.put(
+                    plan.getId(),
+                    getStatusForPlannedOffering(
+                            plan.getCourseOffering(),
+                            allPlans,
+                            completedCourseCodes,
+                            orderedTerms
+                    )
+            );
+        }
+
+        return statusesByPlanId;
+    }
+
+    public Map<String, List<StudentPlan>> groupPlansByTerm(List<StudentPlan> plans, List<String> orderedTerms) {
+        Map<String, List<StudentPlan>> grouped = new LinkedHashMap<>();
+
+        if (orderedTerms != null) {
+            for (String term : orderedTerms) {
+                grouped.put(term, new ArrayList<>());
+            }
+        }
+
+        if (plans == null || plans.isEmpty()) {
+            return grouped;
+        }
+
+        for (StudentPlan plan : plans) {
+            if (plan == null || plan.getTerm() == null) {
+                continue;
+            }
+
+            String termLabel = plan.getTerm().getLabel();
+            grouped.computeIfAbsent(termLabel, k -> new ArrayList<>()).add(plan);
+        }
+
+        return grouped;
     }
 }

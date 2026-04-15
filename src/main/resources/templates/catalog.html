@@ -1,48 +1,50 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-    <head>
-        <meta charset="UTF-8" />
-        <title>Course Catalog</title>
-    </head>
-    <body>
-        <nav class="d-flex justify-content-center">
-            <h3>Registration</h3>
-            <a th:href="@{/dashboard}">Dashboard</a>
-            <a th:href="@{/plan}">My Plan</a>
-            <a th:href="@{/courses}">Course Catalog</a>
-            <div style="margin-top: auto;">
-                <form th:action="@{/logout}" method="post">
-                    <button type="submit">Logout</button>
-                </form>
-            </div>
-        </nav>
-        <h1>Course Catalog</h1>
+<html xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Course Catalog</title></head>
+<body>
+<a href="/dashboard">Dashboard</a> |
+<a href="/plan">My Plan</a> |
+<a href="/courses">Catalog</a> |
+<form th:action="@{/logout}" method="post" style="display:inline">
+    <button type="submit">Logout</button>
+</form>
+<hr>
 
-        <p th:if="${selectedTerm != ''}">
-            Showing courses for term: <span th:text="${selectedTerm}"></span>
-        </p>
+<h1>Available Courses</h1>
+<p>Showing courses that count toward your degree, have open seats, and for which you meet all prerequisites.</p>
 
-        <table border="1">
-            <thead>
-                <tr>
-                    <th>Course Code</th>
-                    <th>Title</th>
-                    <th>Credits</th>
-                    <th>Term</th>
-                    <th>Capacity</th>
-                    <th>Enrolled</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="offering : ${offerings}">
-                    <td th:text="${offering.course.code}"></td>
-                    <td th:text="${offering.course.title}"></td>
-                    <td th:text="${offering.course.credits}"></td>
-                    <td th:text="${offering.term.label}"></td>
-                    <td th:text="${offering.capacity}"></td>
-                    <td th:text="${offering.enrolledCount}"></td>
-                </tr>
-            </tbody>
-        </table>
-    </body>
+<form method="get" th:action="@{/courses}">
+    <label for="term-select">Term: </label>
+    <select id="term-select" name="term" onchange="this.form.submit()">
+        <option value="" th:selected="${selectedTerm == ''}">Active term</option>
+        <option th:each="t : ${terms}"
+                th:value="${t.label}"
+                th:text="${t.label}"
+                th:selected="${t.label == selectedTerm}"></option>
+    </select>
+</form>
+
+<br>
+
+<p th:if="${#lists.isEmpty(offerings)}">No eligible courses found for this term.</p>
+
+<table th:unless="${#lists.isEmpty(offerings)}" border="1" cellpadding="4">
+    <tr>
+        <th>Code</th>
+        <th>Title</th>
+        <th>Credits</th>
+        <th>Department</th>
+        <th>Term</th>
+        <th>Seats Available</th>
+    </tr>
+    <tr th:each="o : ${offerings}">
+        <td th:text="${o.course.code}"></td>
+        <td th:text="${o.course.title}"></td>
+        <td th:text="${o.course.credits}"></td>
+        <td th:text="${o.course.department.name}"></td>
+        <td th:text="${o.term.label}"></td>
+        <td th:text="${o.availableSeats}"></td>
+    </tr>
+</table>
+</body>
 </html>

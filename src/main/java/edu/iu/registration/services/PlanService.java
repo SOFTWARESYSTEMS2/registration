@@ -1,171 +1,206 @@
 package edu.iu.registration.services;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import edu.iu.registration.data.access.PlanAccess;
+import edu.iu.registration.data.entities.AppUser;
+import edu.iu.registration.data.entities.Course;
 import edu.iu.registration.data.entities.CourseOffering;
-import edu.iu.registration.data.entities.PlanEntry;
-import edu.iu.registration.models.PlanCourse;
+import edu.iu.registration.data.entities.StudentPlan;
+import edu.iu.registration.data.entities.Term;
+import edu.iu.registration.data.repositories.AppUserRepository;
+import edu.iu.registration.data.repositories.CourseOfferingRepository;
+import edu.iu.registration.data.repositories.CourseRepository;
+import edu.iu.registration.data.repositories.StudentPlanRepository;
+import edu.iu.registration.data.repositories.TermRepository;
 import edu.iu.registration.utility.PrerequisiteEngine;
 
 @Service
 @Transactional
 public class PlanService {
 
-    private final PlanAccess planAccess;
-    private final CourseService courseService;
+    private final StudentPlanRepository studentPlanRepository;
+    private final CourseOfferingRepository courseOfferingRepository;
+    private final CourseRepository courseRepository;
+    private final AppUserRepository appUserRepository;
+    private final TermRepository termRepository;
     private final PrerequisiteEngine prerequisiteEngine;
 
     public PlanService(
-            PlanAccess planAccess,
-            CourseService courseService,
+            StudentPlanRepository studentPlanRepository,
+            CourseOfferingRepository courseOfferingRepository,
+            CourseRepository courseRepository,
+            AppUserRepository appUserRepository,
+            TermRepository termRepository,
             PrerequisiteEngine prerequisiteEngine) {
-        this.planAccess = planAccess;
-        this.courseService = courseService;
+
+        this.studentPlanRepository = studentPlanRepository;
+        this.courseOfferingRepository = courseOfferingRepository;
+        this.courseRepository = courseRepository;
+        this.appUserRepository = appUserRepository;
+        this.termRepository = termRepository;
         this.prerequisiteEngine = prerequisiteEngine;
     }
 
-    public Set<String> getCompletedCourseCodes(String username) {
-        return new LinkedHashSet<>(planAccess.findCompletedCourseCodesForUser(username));
+    // ── Read ───────────────────────────────────────────────────────────────
+    @Transactional(readOnly = true)
+    public List<StudentPlan> getPlansForUser(AppUser user) {
+        return studentPlanRepository.findByUser(user);
     }
 
-    public void saveCompletedCourses(String username, List<String> selectedCourseCodes) {
-        planAccess.replaceCompletedCourses(username, selectedCourseCodes);
-        recalculateAndPersistStatuses(username);
+    @Transactional(readOnly = true)
+    public List<StudentPlan> getPlansForUserAndTerm(AppUser user, String termLabel) {
+        return termRepository.findByLabel(termLabel)
+                .map(term -> studentPlanRepository.findByUserAndTerm(user, term))
+                .orElse(Collections.emptyList());
     }
 
-    public boolean isCourseComplete(String username, String courseCode) {
-        return getCompletedCourseCodes(username).contains(courseCode);
-    }
+    // Returns all planned courses grouped by term label, preserving term order
+    @Transactional(readOnly = true)
+    public Map<String, List<StudentPlan>> getPlansGroupedBySemester(AppUser user) {
+        List<StudentPlan> all = studentPlanRepository.findByUser(user);
 
-    public List<String> getSemesters() {
-        return prerequisiteEngine.getSemesters();
-    }
-
-    public Map<String, List<PlanCourse>> getPlanGroupedBySemester(String username) {
-        Map<String, List<PlanCourse>> groupedPlan = new LinkedHashMap<>();
-
-        for (String semester : getSemesters()) {
-            groupedPlan.put(semester, new ArrayList<>());
+        // Maintain insertion order by term label sorted as stored in DB
+        Map<String, List<StudentPlan>> grouped = new LinkedHashMap<>();
+        for (StudentPlan plan : all) {
+            String label = plan.getTerm().getLabel();
+            grouped.computeIfAbsent(label, k -> new ArrayList<>()).add(plan);
         }
-
-        List<PlanEntry> allEntries = planAccess.getPlanEntries(username);
-        Set<String> completedCourseCodes = planAccess.findCompletedCourseCodesForUser(username);
-
-        for (PlanEntry entry : allEntries) {
-            if (entry == null
-                    || entry.getCourseOffering() == null
-                    || entry.getCourseOffering().getTerm() == null) {
-                continue;
-            }
-
-            String semester = entry.getCourseOffering().getTerm().getLabel();
-
-            groupedPlan.computeIfAbsent(semester, k -> new ArrayList<>())
-                       .add(toPlanCourse(entry, allEntries, completedCourseCodes));
-        }
-
-        return groupedPlan;
+        return grouped;
     }
 
-    public List<PlanCourse> getPlanEntriesForTerm(String username, String term) {
-        List<PlanCourse> result = new ArrayList<>();
-
-        List<PlanEntry> allEntries = planAccess.getPlanEntries(username);
-        Set<String> completedCourseCodes = planAccess.findCompletedCourseCodesForUser(username);
-
-        for (PlanEntry entry : planAccess.getPlanEntriesForTerm(username, term)) {
-            result.add(toPlanCourse(entry, allEntries, completedCourseCodes));
-        }
-
-        return result;
+    @Transactional(readOnly = true)
+    public Set<String> getPlannedCourseCodesForTerm(AppUser user, String termLabel) {
+        return getPlansForUserAndTerm(user, termLabel).stream()
+                .map(sp -> sp.getCourse().getCode())
+                .collect(Collectors.toSet());
     }
 
-    public Set<String> getSelectedCourseCodesForTerm(String username, String term) {
-        Set<String> selected = new LinkedHashSet<>();
-
-        for (PlanEntry entry : planAccess.getPlanEntriesForTerm(username, term)) {
-            if (entry != null
-                    && entry.getCourseOffering() != null
-                    && entry.getCourseOffering().getCourse() != null) {
-                selected.add(entry.getCourseOffering().getCourse().getCode());
-            }
-        }
-
-        return selected;
+    @Transactional(readOnly = true)
+    public List<String> getOrderedTermLabels() {
+        return termRepository.findAllByOrderByIdAsc()
+                .stream()
+                .map(Term::getLabel)
+                .toList();
     }
 
-    public void addCourseToSemester(String username, String semester, String courseCode) {
-        addCourseToSemesterInternal(username, semester, courseCode);
-        recalculateAndPersistStatuses(username);
-    }
+    @Transactional(readOnly = true)
+    public Map<Long, List<String>> getMissingPrereqsForUser(AppUser user) {
+        List<StudentPlan> plans = studentPlanRepository.findByUser(user);
+        Set<String> completed = getCompletedCourseCodes(user);
+        List<String> orderedTerms = getOrderedTermLabels();
 
-    public void saveCoursesForTerm(String username, String term, List<String> selectedCourseCodes) {
-        planAccess.deletePlanEntriesForTerm(username, term);
-
-        if (selectedCourseCodes != null) {
-            for (String courseCode : selectedCourseCodes) {
-                addCourseToSemesterInternal(username, term, courseCode);
-            }
-        }
-
-        recalculateAndPersistStatuses(username);
-    }
-
-    private void addCourseToSemesterInternal(String username, String semester, String courseCode) {
-        Optional<CourseOffering> offeringOpt = courseService.getCourseOffering(courseCode, semester);
-        if (offeringOpt.isEmpty()) {
-            return;
-        }
-
-        CourseOffering offering = offeringOpt.get();
-        List<PlanEntry> existingEntries = planAccess.getPlanEntries(username);
-        Set<String> completedCourseCodes = planAccess.findCompletedCourseCodesForUser(username);
-
-        String status = prerequisiteEngine.determineStatus(
-                offering,
-                existingEntries,
-                completedCourseCodes
+        return prerequisiteEngine.getMissingPrerequisitesByPlanId(
+                plans,
+                completed,
+                orderedTerms
         );
-
-        planAccess.addPlanEntry(username, offering, status);
     }
+    @Transactional(readOnly = true)
+    public Map<Long, String> getStatusesForUser(AppUser user) {
+        List<StudentPlan> plans = studentPlanRepository.findByUser(user);
+        Set<String> completed = getCompletedCourseCodes(user);
+        List<String> orderedTerms = getOrderedTermLabels();
 
-    private PlanCourse toPlanCourse(
-            PlanEntry entry,
-            List<PlanEntry> allEntries,
-            Set<String> completedCourseCodes) {
-
-        List<String> missingPrerequisites = prerequisiteEngine.findMissingPrerequisitesForEntry(
-                entry.getCourseOffering(),
-                allEntries,
-                completedCourseCodes
-        );
-
-        return new PlanCourse(
-                entry.getCourseOffering(),
-                entry.getStatus(),
-                missingPrerequisites
+        return prerequisiteEngine.getStatusesByPlanId(
+                plans,
+                completed,
+                orderedTerms
         );
     }
 
-    private void recalculateAndPersistStatuses(String username) {
-        List<PlanEntry> allEntries = planAccess.getPlanEntries(username);
-        Set<String> completedCourseCodes = planAccess.findCompletedCourseCodesForUser(username);
+    // ── Write ──────────────────────────────────────────────────────────────
+    public StudentPlan addToPlan(AppUser user, Long courseOfferingId) {
+        CourseOffering offering = courseOfferingRepository.findById(courseOfferingId)
+                .orElseThrow(() -> new IllegalArgumentException("Offering not found: " + courseOfferingId));
 
-        prerequisiteEngine.recalculateStatuses(allEntries, completedCourseCodes);
+        // Idempotent — return existing plan entry if already added
+        return studentPlanRepository.findByUserAndCourseOffering(user, offering)
+                .orElseGet(() -> studentPlanRepository.save(new StudentPlan(user, offering)));
+    }
 
-        for (PlanEntry entry : allEntries) {
-            planAccess.savePlanEntry(entry);
+    public void removeFromPlan(AppUser user, Long courseOfferingId) {
+        courseOfferingRepository.findById(courseOfferingId).ifPresent(offering
+                -> studentPlanRepository.findByUserAndCourseOffering(user, offering)
+                        .ifPresent(studentPlanRepository::delete));
+    }
+
+    // Adds new courses for the term and removes any that were unselected (and removes them from completed courses)
+    // Skips any courses that were already checked and added to the plan, so they won't be deleted and re-added
+    public void replaceTermPlan(AppUser user, String termLabel, List<String> courseCodes) {
+        Term term = termRepository.findByLabel(termLabel)
+                .orElseThrow(() -> new IllegalArgumentException("Term not found: " + termLabel));
+
+        List<StudentPlan> existingPlans = studentPlanRepository.findByUserAndTerm(user, term);
+
+        Set<String> submittedCodes = new LinkedHashSet<>();
+        if (courseCodes != null) {
+            for (String code : courseCodes) {
+                if (code != null && !code.isBlank()) {
+                    submittedCodes.add(code.trim().toUpperCase(Locale.ROOT));
+                }
+            }
         }
+
+        Set<String> existingCodes = existingPlans.stream()
+                .map(sp -> sp.getCourse().getCode())
+                .collect(Collectors.toSet());
+
+        for (StudentPlan existingPlan : existingPlans) {
+            String existingCode = existingPlan.getCourse().getCode();
+
+            if (!submittedCodes.contains(existingCode)) {
+                studentPlanRepository.delete(existingPlan);
+
+                courseRepository.findByCode(existingCode)
+                        .ifPresent(user::removeCompletedCourse);
+            }
+        }
+
+        for (String code : submittedCodes) {
+            if (!existingCodes.contains(code)) {
+                courseRepository.findByCode(code)
+                        .flatMap(course -> courseOfferingRepository.findByCourseAndTerm(course, term))
+                        .ifPresent(offering -> {
+                            if (studentPlanRepository.findByUserAndCourseOffering(user, offering).isEmpty()) {
+                                studentPlanRepository.save(new StudentPlan(user, offering));
+                            }
+                        });
+            }
+        }
+
+        appUserRepository.save(user);
+    }
+
+    // ── Completed courses ──────────────────────────────────────────────────
+    // Save a new set of completed courses for the user (replaces current set)
+    public void saveCompletedCourses(AppUser user, List<String> courseCodes) {
+        user.getCompletedCourses().clear();
+
+        if (courseCodes != null) {
+            for (String code : courseCodes) {
+                courseRepository.findByCode(code.trim().toUpperCase(Locale.ROOT))
+                        .ifPresent(user::addCompletedCourse);
+            }
+        }
+
+        appUserRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public Set<String> getCompletedCourseCodes(AppUser user) {
+        return user.getCompletedCourses().stream()
+                .map(Course::getCode)
+                .collect(Collectors.toSet());
     }
 }

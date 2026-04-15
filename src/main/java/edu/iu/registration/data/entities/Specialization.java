@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import java.util.Objects;
 
 @Entity
+@Table(name = "specialization")
 public class Specialization {
 
     @Id
@@ -14,6 +15,7 @@ public class Specialization {
     private String name;
 
     @ManyToOne(optional = false)
+    @JoinColumn(name = "major_id")
     private Major major;
 
     public Specialization() {}
@@ -23,35 +25,19 @@ public class Specialization {
         this.major = major;
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public Major getMajor() {
-        return major;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public void setMajor(Major major) {
-        this.major = major;
-    }
+    public Long getId() { return id; }
+    public String getName() { return name; }
+    public Major getMajor() { return major; }
+    public void setName(String name) { this.name = name; }
+    public void setMajor(Major major) { this.major = major; }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Specialization that)) return false;
-        return Objects.equals(id, that.id);
+        if (!(o instanceof Specialization s)) return false;
+        return Objects.equals(id, s.id);
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(id);
-    }
+    public int hashCode() { return Objects.hash(id); }
 }

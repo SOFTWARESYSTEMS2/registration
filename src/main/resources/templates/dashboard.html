@@ -1,49 +1,91 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" th:href="@{/style.css}">
-    <title>Index</title>
-</head>
+<html xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Dashboard</title></head>
 <body>
-    <nav class="d-flex justify-content-center">
-        <h3>Registration</h3>
-        <a th:href="@{/dashboard}">Dashboard</a>
-        <a th:href="@{/plan}">My Plan</a>
-        <a th:href="@{/courses}">Course Catalog</a>
-        <div style="margin-top: auto;">
-            <form th:action="@{/logout}" method="post">
-                <button type="submit">Logout</button>
-            </form>
-        </div>
-    </nav>
-    <main>
-        <h2 th:text="${username != null ? username : 'User'} + '\'s Dashboard'">Dashboard</h2>
-        <div id="progress" class="card mb-3 d-flex justify-content-around">
-            <div class="mb-3">
-                <h3>Degree Progress</h3>
-                <p th:text="'Credits: ' + ${degHave} + '/' + ${degNeed}">Credits: 0/120</p>
-            </div>
-            <div class="mb-3">
-                <h3>Major Progress</h3>
-                <p th:text="'Credits: ' + ${majHave} + '/' + ${majNeed}">Credits: 0/50</p>
-            </div>
-            <div class="mb-3" th:if="${user != null and user.minor != null}">
-                <h3>Minor Progress</h3>
-                <p th:text="'Credits: ' + ${minHave} + '/' + ${minNeed}">Credits: 0/25</p>
-            </div>
-            <div class="mb-3">
-                <h3>Arts and Humanities Progress</h3>
-                <p th:text="'Credits: ' + ${ahHave} + '/' + ${ahNeed}">Credits: 0/10</p>
-            </div>
-            <div class="mb-3">
-                <h3>Science and History Progress</h3>
-                <p th:text="'Credits: ' + ${shHave} + '/' + ${shNeed}">Credits: 0/10</p>
-            </div>
-        </div>
-    </main>
-</div>
+<a href="/dashboard">Dashboard</a> |
+<a href="/plan">My Plan</a> |
+<a href="/courses">Catalog</a> |
+<form th:action="@{/logout}" method="post" style="display:inline">
+    <button type="submit">Logout</button>
+</form>
+<hr>
+
+<h1 th:text="|${user.username}'s Dashboard|">Dashboard</h1>
+
+<h2>Your Programs</h2>
+<ul>
+    <li><strong>Major:</strong> <span th:text="${user.major.name}"></span></li>
+    <li th:if="${user.minor != null}"><strong>Minor:</strong> <span th:text="${user.minor.name}"></span></li>
+    <li th:if="${user.specialization != null}"><strong>Specialization:</strong> <span th:text="${user.specialization.name}"></span></li>
+    <li><strong>Class year:</strong> <span th:text="${user.classYear}"></span></li>
+</ul>
+
+<h2>Degree Progress</h2>
+<table border="1" cellpadding="4">
+    <tr>
+        <th>Area</th>
+        <th>Credits Earned</th>
+        <th>Credits Required</th>
+        <th>Status</th>
+    </tr>
+    <tr>
+        <td>Total Degree</td>
+        <td th:text="${progress.totalCreditsEarned}"></td>
+        <td th:text="${progress.totalCreditsRequired}"></td>
+        <td th:text="${progress.totalCreditsEarned >= progress.totalCreditsRequired} ? 'Complete' : 'In Progress'"></td>
+    </tr>
+    <tr>
+        <td th:text="${user.major.name}"></td>
+        <td th:text="${progress.majorCreditsEarned}"></td>
+        <td th:text="${progress.majorCreditsRequired}"></td>
+        <td th:text="${progress.isMajorComplete()} ? 'Complete' : 'In Progress'"></td>
+    </tr>
+    <tr th:if="${progress.minorCreditsRequired > 0}">
+        <td th:text="${user.minor.name}"></td>
+        <td th:text="${progress.minorCreditsEarned}"></td>
+        <td th:text="${progress.minorCreditsRequired}"></td>
+        <td th:text="${progress.isMinorComplete()} ? 'Complete' : 'In Progress'"></td>
+    </tr>
+    <tr th:if="${progress.specCreditsRequired > 0}">
+        <td th:text="${user.specialization.name}"></td>
+        <td th:text="${progress.specCreditsEarned}"></td>
+        <td th:text="${progress.specCreditsRequired}"></td>
+        <td th:text="${progress.specCreditsEarned >= progress.specCreditsRequired} ? 'Complete' : 'In Progress'"></td>
+    </tr>
+    <tr>
+        <td>Gen Ed</td>
+        <td th:text="${progress.genEdCreditsEarned}"></td>
+        <td th:text="${progress.genEdCreditsRequired}"></td>
+        <td th:text="${progress.genEdCreditsEarned >= progress.genEdCreditsRequired} ? 'Complete' : 'In Progress'"></td>
+    </tr>
+</table>
+
+<h2>Degree Map — Requirement Breakdown</h2>
+<table border="1" cellpadding="4">
+    <tr>
+        <th>Requirement</th>
+        <th>Category</th>
+        <th>Credits Earned</th>
+        <th>Credits Needed</th>
+        <th>Status</th>
+        <th>Completed Courses</th>
+    </tr>
+    <tr th:each="rs : ${requirements}">
+        <td th:text="${rs.requirement.name}"></td>
+        <td th:text="${rs.requirement.category}"></td>
+        <td th:text="${rs.creditsEarned}"></td>
+        <td th:text="${rs.requirement.creditsNeeded}"></td>
+        <td>
+            <span th:if="${rs.satisfied}">&#10003; Complete</span>
+            <span th:unless="${rs.satisfied}" th:text="|${rs.creditsRemaining} cr remaining|"></span>
+        </td>
+        <td>
+            <th:block th:each="c, i : ${rs.completedEligibleCourses}">
+                <span th:text="${c.code}"></span><span th:if="${!i.last}">, </span>
+            </th:block>
+            <span th:if="${#sets.isEmpty(rs.completedEligibleCourses)}">None yet</span>
+        </td>
+    </tr>
+</table>
 </body>
 </html>

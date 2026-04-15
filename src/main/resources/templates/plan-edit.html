@@ -1,43 +1,49 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <title>Edit Semester Plan</title>
-    <meta charset="UTF-8">
-</head>
+<head><meta charset="UTF-8"><title>Edit Semester</title></head>
 <body>
-    <h1 th:text="'Edit courses for ' + ${term}"></h1>
+<a href="/dashboard">Dashboard</a> |
+<a href="/plan">My Plan</a> |
+<a href="/courses">Catalog</a> |
+<form th:action="@{/logout}" method="post" style="display:inline">
+    <button type="submit">Logout</button>
+</form>
+<hr>
 
-    <form th:action="@{/plan/edit/save}" method="post">
-        <input type="hidden" name="term" th:value="${term}" />
+<h1 th:text="|Editing: ${term}|">Edit Semester</h1>
+<p>Only courses that count toward your degree, have open seats, and for which you have met all prerequisites are shown.</p>
 
-        <div th:if="${#lists.isEmpty(availableOfferings)}">
-            <p>No courses offered for this term.</p>
-        </div>
+<form th:action="@{/plan/edit/save}" method="post">
+    <input type="hidden" name="term" th:value="${term}"/>
 
-        <div th:each="offering : ${availableOfferings}">
-            <label>
+    <p th:if="${#lists.isEmpty(availableOfferings)}">No eligible courses available for this term.</p>
+
+    <table th:unless="${#lists.isEmpty(availableOfferings)}" border="1" cellpadding="4">
+        <tr>
+            <th>Select</th>
+            <th>Code</th>
+            <th>Title</th>
+            <th>Credits</th>
+            <th>Department</th>
+            <th>Seats Open</th>
+        </tr>
+        <tr th:each="o : ${availableOfferings}">
+            <td>
                 <input type="checkbox"
                        name="selectedCourses"
-                       th:value="${offering.course.code}"
-                       th:checked="${selectedCourseCodes.contains(offering.course.code)}" />
-
-                <span th:text="${offering.course.code}"></span>
-                -
-                <span th:text="${offering.course.title}"></span>
-            </label>
-
-            <span>
-                (<span th:text="${offering.capacity}"></span> seats,
-                 <span th:text="${offering.enrolledCount}"></span> enrolled)
-            </span>
-
-            <br><br>
-        </div>
-
-        <button type="submit">Save semester courses</button>
-        <a th:href="@{/plan}">
-            <button type="button">Cancel</button>
-        </a>
-    </form>
+                       th:value="${o.course.code}"
+                       th:checked="${plannedCodes.contains(o.course.code)}"/>
+            </td>
+            <td th:text="${o.course.code}"></td>
+            <td th:text="${o.course.title}"></td>
+            <td th:text="${o.course.credits}"></td>
+            <td th:text="${o.course.department.name}"></td>
+            <td th:text="${o.availableSeats}"></td>
+        </tr>
+    </table>
+    <br>
+    <input type="submit" value="Save">
+    <a href="/plan">Cancel</a>
+</form>
 </body>
 </html>

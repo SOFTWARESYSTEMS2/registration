@@ -1,20 +1,9 @@
 package edu.iu.registration.data.entities;
 
+import jakarta.persistence.*;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "app_user")
@@ -33,28 +22,32 @@ public class AppUser {
     @Column(nullable = false)
     private String role;
 
+    // e.g. "Freshman", "Sophomore", "Junior", "Senior"
     @Column(nullable = false)
     private String classYear;
 
     @ManyToOne(optional = false)
+    @JoinColumn(name = "major_id")
     private Major major;
 
     @ManyToOne
+    @JoinColumn(name = "minor_id")
     private Minor minor;
 
     @ManyToOne
+    @JoinColumn(name = "specialization_id")
     private Specialization specialization;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    // Courses the student has already completed — LAZY to avoid loading on every auth check
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-        name = "user_courses", 
-        joinColumns = @JoinColumn(name = "user_id"), 
+        name = "completed_courses",
+        joinColumns = @JoinColumn(name = "user_id"),
         inverseJoinColumns = @JoinColumn(name = "course_id")
-        )
-    private Set<Course> courses = new HashSet<>();
+    )
+    private Set<Course> completedCourses = new HashSet<>();
 
-    public AppUser() {
-    }
+    public AppUser() {}
 
     public AppUser(String username, String password, String role, String classYear,
                    Major major, Minor minor, Specialization specialization) {
@@ -67,91 +60,35 @@ public class AppUser {
         this.specialization = specialization;
     }
 
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public String getUsername() { return username; }
+    public String getPassword() { return password; }
+    public String getRole() { return role; }
+    public String getClassYear() { return classYear; }
+    public Major getMajor() { return major; }
+    public Minor getMinor() { return minor; }
+    public Specialization getSpecialization() { return specialization; }
+    public Set<Course> getCompletedCourses() { return completedCourses; }
 
-    public String getUsername() {
-        return username;
-    }
+    public void setUsername(String username) { this.username = username; }
+    public void setPassword(String password) { this.password = password; }
+    public void setRole(String role) { this.role = role; }
+    public void setClassYear(String classYear) { this.classYear = classYear; }
+    public void setMajor(Major major) { this.major = major; }
+    public void setMinor(Minor minor) { this.minor = minor; }
+    public void setSpecialization(Specialization specialization) { this.specialization = specialization; }
+    public void setCompletedCourses(Set<Course> completedCourses) { this.completedCourses = completedCourses; }
 
-    public String getPassword() {
-        return password;
-    }
-
-    public String getRole() {
-        return role;
-    }
-
-    public String getClassYear() {
-        return classYear;
-    }
-
-    public Major getMajor() {
-        return major;
-    }
-
-    public Minor getMinor() {
-        return minor;
-    }
-
-    public Specialization getSpecialization() {
-        return specialization;
-    }
-
-    public Set<Course> getCourses() {
-        return courses;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public void setRole(String role) {
-        this.role = role;
-    }
-
-    public void setClassYear(String classYear) {
-        this.classYear = classYear;
-    }
-
-    public void setMajor(Major major) {
-        this.major = major;
-    }
-
-    public void setMinor(Minor minor) {
-        this.minor = minor;
-    }
-
-    public void setSpecialization(Specialization specialization) {
-        this.specialization = specialization;
-    }
-
-    public void setCourses(Set<Course> courses) {
-        this.courses = courses;
-    }
-
-    public void addCourse(Course course) {
-        this.courses.add(course);
-    }
-
-    public void removeCourse(Course course) {
-        this.courses.remove(course);
-    }
+    public void addCompletedCourse(Course course) { this.completedCourses.add(course); }
+    public void removeCompletedCourse(Course course) { this.completedCourses.remove(course); }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof AppUser appUser)) return false;
-        return Objects.equals(id, appUser.id);
+        if (!(o instanceof AppUser u)) return false;
+        return Objects.equals(id, u.id);
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(id);
-    }
+    public int hashCode() { return Objects.hash(id); }
 }
