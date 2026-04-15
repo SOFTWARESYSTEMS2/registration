@@ -1,63 +1,70 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <title>My Academic Plan</title>
-    <meta charset="UTF-8">
-</head>
+<head><meta charset="UTF-8"><title>My Plan</title></head>
 <body>
+<a href="/dashboard">Dashboard</a> |
+<a href="/plan">My Plan</a> |
+<a href="/courses">Catalog</a> |
+<form th:action="@{/logout}" method="post" style="display:inline">
+    <button type="submit">Logout</button>
+</form>
+<hr>
 
-    <nav class="d-flex justify-content-center">
-        <h3>Registration</h3>
-        <a th:href="@{/dashboard}">Dashboard</a>
-        <a th:href="@{/plan}">My Plan</a>
-        <a th:href="@{/courses}">Course Catalog</a>
-        <div style="margin-top: auto;">
-            <form th:action="@{/logout}" method="post">
-                <button type="submit">Logout</button>
-            </form>
-        </div>
-    </nav>
-    <h1>My Academic Plan</h1>
+<h1>My Academic Plan</h1>
 
-    <form th:action="@{/plan/save}" method="post">
-        <div th:each="semesterEntry : ${groupedPlan}">
-            <h2 th:text="${semesterEntry.key}"></h2>
-            <a th:href="@{/plan/edit(term=${semesterEntry.key})}">
-                <button type="button"
-                        th:text="'Edit courses for ' + ${semesterEntry.key}"></button>
-            </a>
+<form th:action="@{/plan/save}" method="post">
+    <div th:each="term : ${allTerms}">
+        <h2 th:text="${term.label}"></h2>
+        <a th:href="@{/plan/edit(term=${term.label})}">Edit this semester</a>
 
-            <div th:if="${#lists.isEmpty(semesterEntry.value)}">
-                <p>No courses planned.</p>
-            </div>
-
-            <div th:each="planCourse : ${semesterEntry.value}">
-                <label>
-                    <input type="checkbox"
-                           name="completedCourses"
-                           th:value="${planCourse.course.code}"
-                           th:checked="${completedCourseCodes.contains(planCourse.course.code)}" />
-
-                    <span th:text="${planCourse.course.code}"></span>
-                    -
-                    <span th:text="${planCourse.course.title}"></span>
-                </label>
-
-                <span>
-                    Status:
-                    <span th:text="${planCourse.status}"></span>
-                </span>
-
-                <span th:if="${planCourse.status == 'WARNING'}">
-                    Missing prerequisites:
-                    <span th:text="${planCourse.missingPrerequisitesText}"></span>
-                </span>
-
-                <br><br>
-            </div>
-        </div>
-
-        <button type="submit">Save</button>
-    </form>
+        <th:block th:with="plans=${groupedPlan[term.label]}">
+            <p th:if="${plans == null or #lists.isEmpty(plans)}">No courses planned.</p>
+            <table th:unless="${plans == null or #lists.isEmpty(plans)}" border="1" cellpadding="4">
+                <tr>
+                    <th>Mark Complete</th>
+                    <th>Code</th>
+                    <th>Title</th>
+                    <th>Credits</th>
+                    <th>Prereq Status</th>
+                </tr>
+            
+                <tr th:each="sp : ${plans}">
+                    <td>
+                        <input type="checkbox"
+                               name="completedCourses"
+                               th:value="${sp.course.code}"
+                               th:checked="${completedCodes.contains(sp.course.code)}"/>
+                    </td>
+            
+                    <td th:text="${sp.course.code}"></td>
+                    <td th:text="${sp.course.title}"></td>
+                    <td th:text="${sp.course.credits}"></td>
+            
+                    <td>
+                        <th:block th:with="
+                            status=${statuses[sp.id]},
+                            missing=${missingPrereqs[sp.id]}
+                        ">
+                            <span th:if="${status == 'OK'}">OK</span>
+            
+                            <span th:if="${status == 'WARNING'}">
+                                WARNING — missing:
+                                <span th:each="m, i : ${missing}">
+                                    <span th:text="${m}"></span><span th:if="${!i.last}">, </span>
+                                </span>
+                            </span>
+            
+                            <span th:if="${status == null}">
+                                OK
+                            </span>
+                        </th:block>
+                    </td>
+                </tr>
+            </table>
+        </th:block>
+        <br>
+    </div>
+    <input type="submit" value="Save Completed Courses">
+</form>
 </body>
 </html>

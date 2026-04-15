@@ -1,37 +1,21 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" th:href="@{/style.css}">
-    <title>Index</title>
-</head>
+<head><meta charset="UTF-8"><title>Degree Planner</title></head>
 <body>
-    <h2>Registration</h2>
-    <div>
-    <div sec:authorize="!isAuthenticated()">
-        <a href="/login">Login</a>
-    </div>
-    <br>
-    <div sec:authorize="isAuthenticated()">
-        <p>
-            Logged in as:
-            <strong sec:authentication="name"></strong>
-        </p>
-    </div>
-
-    <nav class="d-flex justify-content-center">
-        <h3>Registration</h3>
-        <a th:href="@{/dashboard}">Dashboard</a>
-        <a th:href="@{/plan}">My Plan</a>
-        <a th:href="@{/courses}">Course Catalog</a>
-        <div style="margin-top: auto;">
-            <form th:action="@{/logout}" method="post">
-                <button type="submit">Logout</button>
-            </form>
-        </div>
-    </nav>
+<h1>Degree Planner</h1>
+<hr>
+<div sec:authorize="isAuthenticated()">
+    <p>Logged in as: <strong sec:authentication="name"></strong></p>
+    <a href="/dashboard">Dashboard</a> |
+    <a href="/plan">My Plan</a> |
+    <a href="/courses">Course Catalog</a> |
+    <form th:action="@{/logout}" method="post" style="display:inline">
+        <button type="submit">Logout</button>
+    </form>
+</div>
+<div sec:authorize="!isAuthenticated()">
+    <a href="/login">Login</a>
 </div>
 </body>
 </html>

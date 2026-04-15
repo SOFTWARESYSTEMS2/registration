@@ -1,12 +1,13 @@
 package edu.iu.registration.services;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,34 +41,31 @@ public class CourseService {
         this.termRepository = termRepository;
     }
 
-    // return every course in catalog
+    // ── Catalog queries ────────────────────────────────────────────────────
+
     public List<Course> getAllCourses() {
         return courseRepository.findAll();
     }
 
-    // return course with given code if exists
-    public Optional<Course> getCourseByCode(String courseCode) {
-        if (courseCode == null || courseCode.isBlank()) {
+    public Optional<Course> getCourseByCode(String code) {
+        if (code == null || code.isBlank()) {
             return Optional.empty();
         }
-        return courseRepository.findByCode(normalize(courseCode));
+        return courseRepository.findByCode(normalize(code));
     }
 
-        // return course offering with given code if exists
-    public Optional<CourseOffering> getCourseOffering(String courseCode, String termLabel) {
-        if (courseCode.isBlank()) {
-            return Optional.empty();
-        }
-        Optional<Course> courseOpt = courseRepository.findByCode(normalize(courseCode));
-        Optional<Term> termOpt = termRepository.findByLabel(termLabel);
-        if (courseOpt.isEmpty() || termOpt.isEmpty()) {
+    // ── Offering queries ───────────────────────────────────────────────────
+
+    public Optional<CourseOffering> getOffering(String courseCode, String termLabel) {
+        if (courseCode == null || courseCode.isBlank() || termLabel == null || termLabel.isBlank()) {
             return Optional.empty();
         }
 
-        return courseOfferingRepository.findByCourseAndTerm(courseOpt.get(), termOpt.get());
+        return courseRepository.findByCode(normalize(courseCode))
+                .flatMap(course -> termRepository.findByLabel(termLabel)
+                        .flatMap(term -> courseOfferingRepository.findByCourseAndTerm(course, term)));
     }
 
-    // return offerings for a specific term
     public List<CourseOffering> getOfferingsForTerm(Term term) {
         if (term == null) {
             return Collections.emptyList();
@@ -75,176 +73,150 @@ public class CourseService {
         return courseOfferingRepository.findByTerm(term);
     }
 
-    // returns offering for current term
     public List<CourseOffering> getOfferingsForActiveTerm() {
         return termRepository.findByActiveTrue()
                 .map(courseOfferingRepository::findByTerm)
-                .orElseGet(Collections::emptyList);
+                .orElse(Collections.emptyList());
     }
 
-    // returns offerings for a term label if the term exists
     public List<CourseOffering> getOfferingsForTermLabel(String termLabel) {
         if (termLabel == null || termLabel.isBlank()) {
             return Collections.emptyList();
         }
-
         return termRepository.findByLabel(termLabel)
                 .map(courseOfferingRepository::findByTerm)
-                .orElseGet(Collections::emptyList);
+                .orElse(Collections.emptyList());
     }
 
-    // Returns offerings that are not full
+    // ── Filtering ──────────────────────────────────────────────────────────
+
     public List<CourseOffering> filterOpenOfferings(List<CourseOffering> offerings) {
         if (offerings == null || offerings.isEmpty()) {
             return Collections.emptyList();
         }
 
-        List<CourseOffering> open = new ArrayList<>();
-        for (CourseOffering offering : offerings) {
-            if (!isFull(offering)) {
-                open.add(offering);
-            }
-        }
-
-        return open;
+        return offerings.stream()
+                .filter(Objects::nonNull)
+                .filter(o -> !o.isFull())
+                .collect(Collectors.toList());
     }
 
-    // Returns offerings student is eligible to take
-    public List<CourseOffering> filterEligibleOfferings(List<CourseOffering> offerings,
-            Set<String> completedCourseCodes) {
+    public List<CourseOffering> filterEligibleOfferings(
+            List<CourseOffering> offerings,
+            Set<String> satisfiedCourseCodes) {
+
         if (offerings == null || offerings.isEmpty()) {
             return Collections.emptyList();
         }
 
-        Set<String> normalizedCompleted = normalizeCourseCodeSet(completedCourseCodes);
-        List<CourseOffering> eligible = new ArrayList<>();
+        Set<String> satisfied = normalizeSet(satisfiedCourseCodes);
 
-        for (CourseOffering offering : offerings) {
-            if (isEligible(offering.getCourse(), normalizedCompleted)) {
-                eligible.add(offering);
-            }
-        }
+        List<Course> courses = offerings.stream()
+                .filter(Objects::nonNull)
+                .map(CourseOffering::getCourse)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
 
-        return eligible;
+        Map<Long, List<Prerequisite>> prereqsByCourseId = prerequisiteRepository.findByCourseIn(courses)
+                .stream()
+                .collect(Collectors.groupingBy(p -> p.getCourse().getId()));
+
+        return offerings.stream()
+                .filter(Objects::nonNull)
+                .filter(o -> o.getCourse() != null)
+                .filter(o -> isEligible(o.getCourse(), satisfied, prereqsByCourseId))
+                .collect(Collectors.toList());
     }
 
-    // returns offerings in given term that aren't full and student is eligible to
-    // take
-    public List<CourseOffering> getAvailableOfferingsForStudent(Term term, Set<String> completedCourseCodes) {
-        List<CourseOffering> termOfferings = getOfferingsForTerm(term);
-        List<CourseOffering> openOfferings = filterOpenOfferings(termOfferings);
-        return filterEligibleOfferings(openOfferings, completedCourseCodes);
-    }
+    public List<CourseOffering> filterOutCompletedCourses(
+            List<CourseOffering> offerings,
+            Set<String> completedCourseCodes) {
 
-    // returns offerings in current term that aren't full and student is eligible to
-    // take
-    public List<CourseOffering> getAvailableOfferingsForStudent(Set<String> completedCourseCodes) {
-        List<CourseOffering> activeOfferings = getOfferingsForActiveTerm();
-        List<CourseOffering> openOfferings = filterOpenOfferings(activeOfferings);
-        return filterEligibleOfferings(openOfferings, completedCourseCodes);
-    }
-
-    // returns true if course offering is at capacity
-    public boolean isFull(CourseOffering offering) {
-        if (offering == null) {
-            return true;
-        }
-        return offering.getEnrolledCount() >= offering.getCapacity();
-    }
-
-    // returns true if student has completed all prerequisites for course
-    public boolean isEligible(Course course, Set<String> completedCourseCodes) {
-        if (course == null) {
-            return false;
-        }
-
-        Set<String> normalizedCompleted = normalizeCourseCodeSet(completedCourseCodes);
-        List<Prerequisite> prerequisites = prerequisiteRepository.findByCourse(course);
-
-        for (Prerequisite prerequisite : prerequisites) {
-            String requiredCode = prerequisite.getRequiredCourse().getCode();
-            if (!normalizedCompleted.contains(normalize(requiredCode))) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    // returns a list of missing prerequisite codes missing for a course
-    public List<String> getMissingPrerequisites(Course course, Set<String> completedCourseCodes) {
-        if (course == null) {
+        if (offerings == null || offerings.isEmpty()) {
             return Collections.emptyList();
         }
 
-        Set<String> normalizeCompleted = normalizeCourseCodeSet(completedCourseCodes);
-        List<String> missing = new ArrayList<>();
-        List<Prerequisite> prerequisites = prerequisiteRepository.findByCourse(course);
+        Set<String> completed = normalizeSet(completedCourseCodes);
 
-        for (Prerequisite prerequisite : prerequisites) {
-            String requiredCode = prerequisite.getRequiredCourse().getCode();
-            String normalizedRequiredCode = normalize(requiredCode);
-
-            if (!normalizeCompleted.contains(normalizedRequiredCode)) {
-                missing.add(requiredCode);
-            }
-        }
-
-        return missing;
+        return offerings.stream()
+                .filter(Objects::nonNull)
+                .filter(o -> o.getCourse() != null)
+                .filter(o -> o.getCourse().isRepeatable()
+                        || !completed.contains(normalize(o.getCourse().getCode())))
+                .collect(Collectors.toList());
     }
 
-    // Returns prerequisite chain for a course
+    public List<CourseOffering> getAvailableOfferingsForStudent(
+            List<CourseOffering> offerings,
+            Set<String> completedCourseCodes) {
+
+        List<CourseOffering> open = filterOpenOfferings(offerings);
+        List<CourseOffering> eligible = filterEligibleOfferings(open, completedCourseCodes);
+        return filterOutCompletedCourses(eligible, completedCourseCodes);
+    }
+
+    // ── Direct prerequisite helpers ────────────────────────────────────────
+
     public List<String> getPrerequisiteCodes(Course course) {
         if (course == null) {
             return Collections.emptyList();
         }
 
-        List<String> prereqCodes = new ArrayList<>();
-        List<Prerequisite> prerequisites = prerequisiteRepository.findByCourse(course);
-
-        for (Prerequisite prerequisite : prerequisites) {
-            prereqCodes.add(prerequisite.getRequiredCourse().getCode());
-        }
-
-        return prereqCodes;
+        return prerequisiteRepository.findByCourse(course).stream()
+                .map(Prerequisite::getRequiredCourse)
+                .filter(Objects::nonNull)
+                .map(Course::getCode)
+                .collect(Collectors.toList());
     }
 
-    // Filters given courses to only ones students can take
-    public List<Course> filterEligibleCourses(List<Course> courses, Set<String> completedCourseCodes) {
-        if (courses == null || courses.isEmpty()) {
+    public List<String> getMissingPrerequisites(Course course, Set<String> satisfiedCourseCodes) {
+        if (course == null) {
             return Collections.emptyList();
         }
 
-        Set<String> normalizedCompleted = normalizeCourseCodeSet(completedCourseCodes);
-        List<Course> eligible = new ArrayList<>();
+        Set<String> satisfied = normalizeSet(satisfiedCourseCodes);
 
-        for (Course course : courses) {
-            if (isEligible(course, normalizedCompleted)) {
-                eligible.add(course);
-            }
-        }
-
-        return eligible;
+        return prerequisiteRepository.findByCourse(course).stream()
+                .map(Prerequisite::getRequiredCourse)
+                .filter(Objects::nonNull)
+                .map(Course::getCode)
+                .filter(code -> !satisfied.contains(normalize(code)))
+                .collect(Collectors.toList());
     }
 
-    // returns all courses student can take in active term
-    public List<CourseOffering> getFilteredCatalogForStudent(Set<String> completedCourseCodes) {
-        return getAvailableOfferingsForStudent(completedCourseCodes);
+    public boolean isEligibleForCourse(Course course, Set<String> satisfiedCourseCodes) {
+        return getMissingPrerequisites(course, satisfiedCourseCodes).isEmpty();
     }
 
-    private Set<String> normalizeCourseCodeSet(Set<String> codes) {
+    // ── Private helpers ────────────────────────────────────────────────────
+
+    private boolean isEligible(
+            Course course,
+            Set<String> normalizedSatisfied,
+            Map<Long, List<Prerequisite>> prereqsByCourseId) {
+
+        List<Prerequisite> prereqs = prereqsByCourseId.getOrDefault(
+                course.getId(),
+                Collections.emptyList()
+        );
+
+        return prereqs.stream()
+                .map(Prerequisite::getRequiredCourse)
+                .filter(Objects::nonNull)
+                .map(Course::getCode)
+                .allMatch(code -> normalizedSatisfied.contains(normalize(code)));
+    }
+
+    private Set<String> normalizeSet(Set<String> codes) {
         if (codes == null || codes.isEmpty()) {
             return Collections.emptySet();
         }
 
-        Set<String> normalized = new HashSet<>();
-        for (String code : codes) {
-            if (code != null && !code.isBlank()) {
-                normalized.add(normalize(code));
-            }
-        }
-
-        return normalized;
+        return codes.stream()
+                .filter(c -> c != null && !c.isBlank())
+                .map(this::normalize)
+                .collect(Collectors.toSet());
     }
 
     private String normalize(String value) {
